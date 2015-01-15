@@ -26,6 +26,9 @@ my $api = TwitterAPI->new(
     $conf->{twitter}->{access_token_secret}
 );
 
+# データベースの準備
+my $db = MonicoDB->new($conf->{db}->{path});
+
 
 foreach my $tweet ($api->mentions(10)) {
     my $user = $tweet->{'user'}{'screen_name'};
