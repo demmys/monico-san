@@ -6,10 +6,22 @@ use warnings;
 use Net::Twitter;
 
 sub new {
-    my $class = shift;
-    my $conf = do 'config.pl' or die "$!$@";
+    my (
+        $class,
+        $consumerKey,
+        $consumerSecret,
+        $accessToken,
+        $accessTokenSecret
+    ) = @_;
     my $self = {
-        _api => Net::Twitter->new(%$conf)
+        _api => Net::Twitter->new({
+            traits => [qw/API::RESTv1_1/],
+            consumer_key => $consumerKey,
+            consumer_secret => $consumerSecret,
+            access_token => $accessToken,
+            access_token_secret => $accessTokenSecret,
+            ssl => 1
+        })
     };
     return bless $self, $class;
 }
