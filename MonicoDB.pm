@@ -102,15 +102,44 @@ sub select_last_mention {
     return $self->_mention_data_to_hash($sth->fetchrow_array);
 }
 
-sub select_user_calls_between {
-    my ($self, $userID, $from, $to) = @_;
-    my $sth = $self->{_dbh}->prepare("select * from calls
-        where call_time between ? and ? and user_id=?;");
-    $sth->execute(
-        $formatter->format_datetime($from),
-        $formatter->format_datetime($to),
-        $userID
-    );
+sub select_calls_before {
+    my ($self, $since) = @_;
+    my $sth = $self->{_dbh}->prepare("select * from calls where call_time<?;");
+    $sth->execute($formatter->format_datetime($since));
+    my @rows = ();
+    while (my $row = $sth->fetchrow_arrayref) {
+        push @rows, $self->_call_data_to_hash(@$row);
+    }
+    return @rows;
+}
+
+sub select_calls_between {
+    my ($self, $from, $to, %extras) = @_;
+
+    my $extra = '';
+    if ($extras{user_id}) {
+        $extra .= " and user_id=?";
+    }
+    if ($extras{status}) {
+        $extra .= " and status=?";
+    }
+
+    my $query = "select * from calls where call_time between ? and ?".$extra.";";
+    my $sth = $self->{_dbh}->prepare($query);
+    $sth->bind_param(1, $formatter->format_datetime($from));
+    $sth->bind_param(2, $formatter->format_datetime($to));
+
+    my $i = 3;
+    if ($extras{user_id}) {
+        $sth->bind_param($i, $extras{user_id});
+        $i++;
+    }
+    if ($extras{status}) {
+        $sth->bind_param($i, $extras{status});
+        $i++;
+    }
+
+    $sth->execute();
     my @rows = ();
     while (my $row = $sth->fetchrow_arrayref) {
         push @rows, $self->_call_data_to_hash(@$row);

@@ -67,28 +67,58 @@ foreach my $tweet ($api->mentions($tweetID)) {
         );
     }
 
+    my $from = DateTime->now(time_zone => 'local')->subtract(hours => 1);
+    my $to = DateTime->now(time_zone => 'local')->add(hours => 2);
     if ($tweet->{text} =~ /起きたよ/) {
-        my $from = DateTime->now(time_zone => 'local')->subtract(hours => 1);
-        my $to = DateTime->now(time_zone => 'local')->add(hours => 1);
-        my @stoppings = $db->select_user_calls_between($userID, $from, $to);
+        my @stoppings = $db->select_calls_between(
+            $from,
+            $to,
+            user_id => $userID
+        );
         if (@stoppings > 0) {
             foreach my $s (@stoppings) {
                 switch ($s->{status}) {
                     case ($MonicoDB::STATUS_SETTED) {
-                        # TODO update
-                        print "setted\n";
+                        print "nice\n";
                     }
                     case ($MonicoDB::STATUS_ALERTED) {
-                        # TODO update
-                        print "alerted\n";
+                        print "ok\n";
                     }
                     case ($MonicoDB::STATUS_LAST_ALERTED) {
-                        # TODO update
-                        print "last alerted\n";
+                        print "safe\n";
                     }
                 }
                 $db->delete_call($s->{id})
             }
         }
     }
+}
+
+my $from = DateTime->now(time_zone => 'local')->subtract(hours => 1);
+my $to = DateTime->now(time_zone => 'local');
+my @firstAlerts = $db->select_calls_between(
+    $from,
+    $to,
+    status => $MonicoDB::STATUS_SETTED
+);
+foreach my $f (@firstAlerts) {
+    print "first alert ".$f->{screen_name}."\n";
+    # TODO update status
+}
+
+$to->subtract(minutes => 30);
+my @secondAlerts = $db->select_calls_between(
+    $from,
+    $to,
+    status => $MonicoDB::STATUS_ALERTED
+);
+foreach my $s (@secondAlerts) {
+    print "second alert ".$s->{screen_name}."\n";
+    # TODO update status
+}
+
+my @failures = $db->select_calls_before($from);
+foreach my $r (@failures) {
+    # TODO get followers
+    print "failure ".$r->{screen_name}."\n";
 }
