@@ -6,6 +6,7 @@ use warnings;
 use DBI;
 use DateTime;
 use DateTime::Format::Strptime;
+use Data::Dumper;
 
 my $create_mentions_table = <<'EOS';
 create table if not exists mentions (
@@ -32,7 +33,8 @@ our $STATUS_ALERTED = 1;
 our $STATUS_LAST_ALERTED = 2;
 
 my $formatter = DateTime::Format::Strptime->new(
-    pattern => '%Y-%m-%d %H:%M:%S'
+    pattern => '%Y-%m-%d %H:%M:%S',
+    time_zone => 'local'
 );
 
 sub new {
@@ -82,25 +84,38 @@ sub insert_call {
     my $self = shift;
     @_[2] = $formatter->format_datetime($_[2]);
     push @_, $STATUS_SETTED;
-    $self->{_dbh}->do(
-        "insert into calls (user_id, screen_name, call_time, tweet_id, status) values (?, ?, ?, ?, ?);",
-        {},
-        @_
-    );
+    $self->{_dbh}->do( "insert into calls
+        (user_id, screen_name, call_time, tweet_id, status)
+        values (?, ?, ?, ?, ?);", {}, @_);
 }
 
 sub delete_call {
     my ($self, $id) = @_;
-    $self->{_dbh}->do("delete from calls where id='?';", {}, ($id));
+    $self->{_dbh}->do("delete from calls where id=?;", {}, ($id));
 }
 
 sub select_last_mention {
     my $self = shift;
-    my $sth = $self->{_dbh}->prepare(
-        "select * from mentions order by tweet_id desc limit 1;"
-    );
+    my $sth = $self->{_dbh}->prepare("select * from mentions
+        order by tweet_id desc limit 1;");
     $sth->execute;
     return $self->_mention_data_to_hash($sth->fetchrow_array);
+}
+
+sub select_user_calls_between {
+    my ($self, $userID, $from, $to) = @_;
+    my $sth = $self->{_dbh}->prepare("select * from calls
+        where call_time between ? and ? and user_id=?;");
+    $sth->execute(
+        $formatter->format_datetime($from),
+        $formatter->format_datetime($to),
+        $userID
+    );
+    my @rows = ();
+    while (my $row = $sth->fetchrow_arrayref) {
+        push @rows, $self->_call_data_to_hash(@$row);
+    }
+    return @rows;
 }
 
 1;
