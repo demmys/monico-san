@@ -2,13 +2,14 @@ use strict;
 use warnings;
 use utf8;
 use Encode;
+use Data::Dumper;
 
 use MonicoConfig;
 use MonicoDB;
 use TwitterAPI;
 
-binmode(STDOUT, ":encoding(utf-8)");
-binmode(STDERR, ":encoding(utf-8)");
+binmode(STDOUT, ":encoding(UTF-8)");
+binmode(STDERR, ":encoding(UTF-8)");
 
 
 # 設定ファイルの読み込み
@@ -30,13 +31,12 @@ my $api = TwitterAPI->new(
 my $db = MonicoDB->new($conf->{db}->{path});
 
 
-foreach my $tweet ($api->mentions(10)) {
-    my $user = $tweet->{'user'}{'screen_name'};
-    my $text = $tweet->{'text'};
-    print "$user $text\n";
-}
-
-my $err = $api->update('Hello, World!');
-if($err) {
-    print $err;
+my ($tweetID) = $db->select_recent_mention;
+foreach my $tweet ($api->mentions($tweetID)) {
+    $db->insert_mention(
+        $tweet->{id},
+        $tweet->{user}->{id},
+        $tweet->{user}->{screen_name},
+        $tweet->{text}
+    )
 }
