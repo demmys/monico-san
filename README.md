@@ -16,8 +16,8 @@
 #### calls table
 |カラム名 | user_id | screen_name | call_time | tweet_id |
 |:-:|:-:|:-:|:-:|:-:|
-|**型** | text | text | text | text |
-|**意味** | 起こすユーザのID | 起こすユーザの表示名 | 起こす時間(ISO8601形式) | 設定を行ったメンションのID |
+|**型** | text | text | text(datetime) | text |
+|**意味** | 起こすユーザのID | 起こすユーザの表示名 | 起こす時間 | 設定を行ったメンションのID |
 
 ### 実行ステップ
 1. mentionsテーブル中最新のものより新しいメンションの一覧を取得してmentionsテーブルに格納する。取得するメンションがなければ終了

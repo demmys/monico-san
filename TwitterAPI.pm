@@ -30,7 +30,7 @@ sub new {
 sub mentions {
     my ($self, $lastID) = @_;
     my $mentions;
-    if($lastID) {
+    if ($lastID) {
         my $opt = {
             since_id => $lastID + 1,
             include_entities => 0
@@ -50,7 +50,7 @@ sub update {
     eval {
         $self->{_api}->update($body);
     };
-    if($@) {
+    if ($@) {
         return "Error: cannot update $@\n";
     }
     return ''
