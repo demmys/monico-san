@@ -6,7 +6,6 @@ use warnings;
 use DBI;
 use DateTime;
 use DateTime::Format::Strptime;
-use Data::Dumper;
 
 my $create_mentions_table = <<'EOS';
 create table if not exists mentions (
@@ -24,13 +23,9 @@ create table if not exists calls (
     screen_name text,
     call_time text,
     tweet_id text,
-    status integer
+    call_count integer
 )
 EOS
-
-our $STATUS_SETTED = 0;
-our $STATUS_ALERTED = 1;
-our $STATUS_LAST_ALERTED = 2;
 
 my $formatter = DateTime::Format::Strptime->new(
     pattern => '%Y-%m-%d %H:%M:%S',
@@ -71,7 +66,7 @@ sub _call_data_to_hash {
         screen_name => $_[2],
         call_time => $formatter->parse_datetime($_[3]),
         tweet_id => $_[4],
-        status => $_[5]
+        call_count => $_[5]
     }
 }
 
@@ -83,10 +78,15 @@ sub insert_mention {
 sub insert_call {
     my $self = shift;
     @_[2] = $formatter->format_datetime($_[2]);
-    push @_, $STATUS_SETTED;
-    $self->{_dbh}->do( "insert into calls
-        (user_id, screen_name, call_time, tweet_id, status)
+    push @_, 0;
+    $self->{_dbh}->do("insert into calls
+        (user_id, screen_name, call_time, tweet_id, call_count)
         values (?, ?, ?, ?, ?);", {}, @_);
+}
+
+sub increment_call_count {
+    my ($self, $id) = @_;
+    $self->{_dbh}->do("update calls set call_count=call_count+1 where id=?", {}, $id);
 }
 
 sub delete_call {
@@ -103,9 +103,13 @@ sub select_last_mention {
 }
 
 sub select_calls_before {
-    my ($self, $since) = @_;
-    my $sth = $self->{_dbh}->prepare("select * from calls where call_time<?;");
-    $sth->execute($formatter->format_datetime($since));
+    my ($self, $max, $callCount) = @_;
+    my $sth = $self->{_dbh}->prepare("select * from calls
+        where call_time<? and call_count=?;");
+    $sth->execute(
+        $formatter->format_datetime($max),
+        $callCount
+    );
     my @rows = ();
     while (my $row = $sth->fetchrow_arrayref) {
         push @rows, $self->_call_data_to_hash(@$row);
@@ -114,32 +118,14 @@ sub select_calls_before {
 }
 
 sub select_calls_between {
-    my ($self, $from, $to, %extras) = @_;
-
-    my $extra = '';
-    if ($extras{user_id}) {
-        $extra .= " and user_id=?";
-    }
-    if ($extras{status}) {
-        $extra .= " and status=?";
-    }
-
-    my $query = "select * from calls where call_time between ? and ?".$extra.";";
-    my $sth = $self->{_dbh}->prepare($query);
-    $sth->bind_param(1, $formatter->format_datetime($from));
-    $sth->bind_param(2, $formatter->format_datetime($to));
-
-    my $i = 3;
-    if ($extras{user_id}) {
-        $sth->bind_param($i, $extras{user_id});
-        $i++;
-    }
-    if ($extras{status}) {
-        $sth->bind_param($i, $extras{status});
-        $i++;
-    }
-
-    $sth->execute();
+    my ($self, $from, $to, $userID) = @_;
+    my $sth = $self->{_dbh}->prepare("select * from calls
+        where call_time between ? and ? and user_id=?;");
+    $sth->execute(
+        $formatter->format_datetime($from),
+        $formatter->format_datetime($to),
+        $userID
+    );
     my @rows = ();
     while (my $row = $sth->fetchrow_arrayref) {
         push @rows, $self->_call_data_to_hash(@$row);

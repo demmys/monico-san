@@ -3,7 +3,6 @@ use warnings;
 use utf8;
 use Encode;
 use Switch;
-use Data::Dumper;
 
 use MonicoConfig;
 use MonicoDB;
@@ -32,6 +31,7 @@ my $api = TwitterAPI->new(
 my $db = MonicoDB->new($conf->{db}->{path});
 
 
+# 新しいメンションを取得
 my $tweetID = $db->select_last_mention->{tweet_id};
 foreach my $tweet ($api->mentions($tweetID)) {
     my $now = DateTime->now(time_zone => 'local');
@@ -39,6 +39,7 @@ foreach my $tweet ($api->mentions($tweetID)) {
     my $screenName = $tweet->{user}->{screen_name};
     my $tweetID = $tweet->{id};
 
+    # メンションをデータベースに保存
     $db->insert_mention(
         $tweetID,
         $userID,
@@ -46,6 +47,7 @@ foreach my $tweet ($api->mentions($tweetID)) {
         $tweet->{text}
     );
 
+    # 新規モーニングコールの追加
     if ($tweet->{text} =~ /起こして/) {
         $tweet->{text} =~ /(\d+):(\d+)/;
         my $callTime = DateTime->new(
@@ -67,58 +69,60 @@ foreach my $tweet ($api->mentions($tweetID)) {
         );
     }
 
+    # モーニングコールの解除
     my $from = DateTime->now(time_zone => 'local')->subtract(hours => 1);
     my $to = DateTime->now(time_zone => 'local')->add(hours => 2);
     if ($tweet->{text} =~ /起きたよ/) {
-        my @stoppings = $db->select_calls_between(
-            $from,
-            $to,
-            user_id => $userID
-        );
+        my @stoppings = $db->select_calls_between($from, $to, $userID);
         if (@stoppings > 0) {
             foreach my $s (@stoppings) {
-                switch ($s->{status}) {
-                    case ($MonicoDB::STATUS_SETTED) {
+                switch ($s->{call_count}) {
+                    case 0 {
                         print "nice\n";
                     }
-                    case ($MonicoDB::STATUS_ALERTED) {
+                    case 1 {
                         print "ok\n";
                     }
-                    case ($MonicoDB::STATUS_LAST_ALERTED) {
+                    case 2 {
                         print "safe\n";
                     }
+                    else {
+                        print "danger\n";
+                    }
                 }
-                $db->delete_call($s->{id})
+                $db->delete_call($s->{id});
             }
         }
     }
 }
 
-my $from = DateTime->now(time_zone => 'local')->subtract(hours => 1);
-my $to = DateTime->now(time_zone => 'local');
-my @firstAlerts = $db->select_calls_between(
-    $from,
-    $to,
-    status => $MonicoDB::STATUS_SETTED
-);
-foreach my $f (@firstAlerts) {
-    print "first alert ".$f->{screen_name}."\n";
-    # TODO update status
+# モーニングコール
+my $callTime = 60;
+my $callLimit = 3;
+my $max = DateTime->now(time_zone => 'local');
+for (my $i = 0; $i < $callLimit; $i++) {
+    my @alerts = $db->select_calls_before($max, $i);
+    foreach my $alert (@alerts) {
+        print "alert#".($alert->{call_count}+1)." ".$alert->{screen_name}."\n";
+        $db->increment_call_count($alert->{id});
+    }
+    $max->subtract(minutes => $callTime / $callLimit);
 }
 
-$to->subtract(minutes => 30);
-my @secondAlerts = $db->select_calls_between(
-    $from,
-    $to,
-    status => $MonicoDB::STATUS_ALERTED
-);
-foreach my $s (@secondAlerts) {
-    print "second alert ".$s->{screen_name}."\n";
-    # TODO update status
-}
-
-my @failures = $db->select_calls_before($from);
-foreach my $r (@failures) {
-    # TODO get followers
-    print "failure ".$r->{screen_name}."\n";
+# 起きなかった場合の処理
+my @failures = $db->select_calls_before($max, $callLimit);
+foreach my $failure (@failures) {
+    my $friends = $api->friends($failure->{user_id});
+    my @targets = ();
+    while (scalar(@targets) < 3) {
+        my $target = int(rand(@$friends));
+        if (!grep {$_ == $target} @targets) {
+            push @targets, $target;
+        }
+    }
+    print "failure ".$failure->{screen_name}."\nnotifications: ";
+    foreach my $target (@targets) {
+        print $friends->[$target]->{screen_name}.", ";
+    }
+    print "\n";
 }

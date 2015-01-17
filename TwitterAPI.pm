@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use Net::Twitter;
-use Data::Dumper;
 
 sub new {
     my (
@@ -54,6 +53,20 @@ sub update {
         return "Error: cannot update $@\n";
     }
     return ''
+}
+
+sub friends {
+    my ($self, $userID) = @_;
+    my $followings = $self->{_api}->friends_ids({ user_id => $userID });
+    my $followers = $self->{_api}->followers_ids({ user_id => $userID });
+
+    my %cnt = ();
+    my @friendIDs = grep {
+        ++$cnt{$_} == 2
+    } (@{$followings->{ids}}, @{$followers->{ids}});
+
+    my $friends = $self->{_api}->lookup_users({ user_id => \@friendIDs });
+    return $friends;
 }
 
 1;
