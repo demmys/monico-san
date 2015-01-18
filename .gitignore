@@ -2,3 +2,4 @@ sample
 config.pl
 db/*
 cron.schedule
+log
