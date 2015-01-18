@@ -1,0 +1,2 @@
+MAILTO=""
+*/3 * * * * /usr/bin/perl /path/to/main.pl /path/to/config.pl
