@@ -1,2 +1,2 @@
 MAILTO=""
-*/1 * * * * /usr/bin/perl /path/to/main.pl /path/to/config.pl 2>> /path/to/log/error.log
+*/1 * * * * /usr/bin/perl /path/to/main.pl /path/to/config.pl >> /path/to/log/stdout.log 2>> /path/to/log/error.log
