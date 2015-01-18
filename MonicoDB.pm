@@ -78,7 +78,7 @@ sub insert_mention {
 
 sub insert_call {
     my $self = shift;
-    @_[2] = $formatter->format_datetime($_[2]);
+    $_[2] = $formatter->format_datetime($_[2]);
     push @_, 0;
     $self->{_dbh}->do("insert into calls
         (user_id, screen_name, call_time, tweet_id, call_count)
