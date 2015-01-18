@@ -1,7 +1,6 @@
 use strict;
 use warnings;
 use utf8;
-use Encode;
 use Switch;
 
 use MonicoConfig;
@@ -67,6 +66,7 @@ foreach my $tweet ($api->mentions($tweetID)) {
             $callTime,
             $tweetID
         );
+        $api->update("@".$screenName." ".$conf->{line}->{set}->[int(rand(2))]);
     }
 
     # モーニングコールの解除
@@ -76,18 +76,20 @@ foreach my $tweet ($api->mentions($tweetID)) {
         my @stoppings = $db->select_calls_between($from, $to, $userID);
         if (@stoppings > 0) {
             foreach my $s (@stoppings) {
+                my $name = "@".$s->{screen_name}." ";
+                my $pat = int(rand(2));
                 switch ($s->{call_count}) {
                     case 0 {
-                        print "nice\n";
+                        $api->update($name.$conf->{line}->{bouquet}->{before}->[$pat]);
                     }
                     case 1 {
-                        print "ok\n";
+                        $api->update($name.$conf->{line}->{bouquet}->{first}->[$pat]);
                     }
                     case 2 {
-                        print "safe\n";
+                        $api->update($name.$conf->{line}->{bouquet}->{second}->[$pat]);
                     }
                     else {
-                        print "danger\n";
+                        $api->update($name.$conf->{line}->{bouquet}->{last}->[$pat]);
                     }
                 }
                 $db->delete_call($s->{id});
@@ -103,7 +105,10 @@ my $max = DateTime->now(time_zone => 'local');
 for (my $i = 0; $i < $callLimit; $i++) {
     my @alerts = $db->select_calls_before($max, $i);
     foreach my $alert (@alerts) {
-        print "alert#".($alert->{call_count}+1)." ".$alert->{screen_name}."\n";
+        $api->update(
+            "@".$alert->{screen_name}." ".
+            $conf->{line}->{alert}->[$alert->{call_count} % 3]->[int(rand(2))]
+        );
         $db->increment_call_count($alert->{id});
     }
     $max->subtract(minutes => $callTime / $callLimit);
@@ -120,9 +125,9 @@ foreach my $failure (@failures) {
             push @targets, $target;
         }
     }
-    print "failure ".$failure->{screen_name}."\nnotifications: ";
+    my $line = "@".$failure->{screen_name}." ".$conf->{line}->{decrial};
     foreach my $target (@targets) {
-        print $friends->[$target]->{screen_name}.", ";
+        $line .= ".".$friends->[$target]->{screen_name}." ";
     }
-    print "\n";
+    $api->update($line);
 }

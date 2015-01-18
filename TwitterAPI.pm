@@ -2,6 +2,7 @@ package TwitterAPI;
 
 use strict;
 use warnings;
+use utf8;
 
 use Net::Twitter;
 

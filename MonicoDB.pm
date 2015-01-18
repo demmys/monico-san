@@ -2,6 +2,7 @@ package MonicoDB;
 
 use strict;
 use warnings;
+use utf8;
 
 use DBI;
 use DateTime;
