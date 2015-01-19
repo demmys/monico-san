@@ -152,10 +152,10 @@ foreach my $failure (@failures) {
             push @targets, $target;
         }
     }
-    my $line = "@".$failure->{screen_name}." ".$conf->{line}->{decrial};
+    my $line = "@".$failure->{screen_name}." ".$conf->{line}->{decrial}->[int(rand(2))];
     print $failure->{screen_name}." は起きなかったため、";
     foreach my $target (@targets) {
-        $line .= ".".$friends->[$target]->{screen_name}." ";
+        $line .= " .".$friends->[$target]->{screen_name};
         print $friends->[$target]->{screen_name}." ";
     }
     print "にそのことを通知\n";
@@ -163,4 +163,5 @@ foreach my $failure (@failures) {
     if($err) {
         print "ツイート失敗: $err\n";
     }
+    $db->delete_call($failures->{id});
 }
