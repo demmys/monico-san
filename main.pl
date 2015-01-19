@@ -163,5 +163,5 @@ foreach my $failure (@failures) {
     if($err) {
         print "ツイート失敗: $err\n";
     }
-    $db->delete_call($failures->{id});
+    $db->delete_call($failure->{id});
 }
